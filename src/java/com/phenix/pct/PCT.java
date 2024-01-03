@@ -460,7 +460,7 @@ public abstract class PCT extends Task {
      * @since PCT 0.17
      */
     private boolean extractZip(File dir) throws IOException {
-        log("Working with PCT source code, either because you asked for it or because the compiled version is missing in JAR file");
+        //log("Working with PCT source code, either because you asked for it or because the compiled version is missing in JAR file");
         InputStream is = this.getClass().getResourceAsStream("/pct-src.zip");
         if (is == null)
             return false;
