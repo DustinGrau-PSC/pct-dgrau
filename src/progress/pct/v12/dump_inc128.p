@@ -1,5 +1,5 @@
 /*********************************************************************
-* Copyright (C) 2000,2011,2020 by Progress Software Corporation. All *
+* Copyright (C) 2000,2011,2020,2021 by Progress Software Corporation. All *
 * rights reserved. Prior versions of this work may contain portions  *
 * contributed by participants of Possenet.                           *
 *                                                                    *
@@ -22,7 +22,7 @@ Usage:
        #!/bin/sh
        DUMP_INC_DFFILE=/tmp/delta.df
        DUMP_INC_CODEPAGE=iso8859-2
-       DUMP_INC_INDEXMODE=0
+       DUMP_INC_INDEXMODE=active
        DUMP_INC_DUMPSECTION=No
        DUMP_INC_RENAMEFILE=/tmp/master.rf
        DUMP_INC_DEBUG=2
@@ -52,10 +52,8 @@ Usage:
 Environment Variables:
     DUMP_INC_DFFILE          : name of file to dump to
     DUMP_INC_CODEPAGE        : output codepage
-    DUMP_INC_INDEXMODE       : index-mode for newly created indexes in exsting
-                               tables: 0 = all indexes active
-                                       1 = all unique indexes inactive
-                                       2 = all indexes inactive
+    DUMP_INC_INDEXMODE       : index-mode for newly created indexes
+                               allowed values are: "active", "inactive"
     DUMP_INC_DUMPSECTION     : whether dump the sections which
                                support online schema change feature
     DUMP_INC_RENAMEFILE      : name of the file with rename definitions
@@ -119,20 +117,15 @@ end catch.
 
 /* Definitions */ /*-------------------------------------------------------*/
 
-&GLOBAL-DEFINE errFileName "incrdump.e"
-
 &SCOPED-DEFINE VAR_PREFIX       DUMP_INC
 &SCOPED-DEFINE DEFAULT_DF       delta.df
-&SCOPED-DEFINE DEFAULT_INDEX    1
-
-BLOCK-LEVEL ON ERROR UNDO, THROW.
+&SCOPED-DEFINE DEFAULT_INDEX    inactive
 
 DEFINE VARIABLE rename-file  AS CHARACTER NO-UNDO.
 DEFINE VARIABLE df-file-name AS CHARACTER NO-UNDO.
 DEFINE VARIABLE code-page    AS CHARACTER NO-UNDO.
-DEFINE VARIABLE index-mode   AS INTEGER   NO-UNDO.
+DEFINE VARIABLE index-mode   AS CHARACTER NO-UNDO.
 DEFINE VARIABLE debug-mode   AS INTEGER   INITIAL 0 NO-UNDO.
-DEFINE VARIABLE del-df-file  AS LOGICAL   NO-UNDO.
 DEFINE VARIABLE dump-section AS CHARACTER NO-UNDO.
 
 DEFINE VARIABLE foo          AS CHARACTER NO-UNDO.
@@ -160,6 +153,7 @@ DEFINE VARIABLE dictdb-id    AS RECID     INITIAL ? NO-UNDO.
 DEFINE VARIABLE shdb2-id     AS RECID     INITIAL ? NO-UNDO.
 DEFINE VARIABLE dictdb2-id   AS RECID     INITIAL ? NO-UNDO.
 
+DEFINE NEW SHARED VARIABLE errFileName  AS CHARACTER INITIAL "incrdump.e" NO-UNDO.
 DEFINE VARIABLE errcode      AS INTEGER   INITIAL 0 NO-UNDO.
 /* For DataServer Use */
 
@@ -247,13 +241,8 @@ PROCEDURE setCodePage:
 END.
 
 PROCEDURE setIndexMode:
-    DEFINE INPUT PARAMETER inc_indexmode AS INTEGER  NO-UNDO.
+    DEFINE INPUT PARAMETER inc_indexmode AS CHARACTER NO-UNDO.
     ASSIGN index-mode   =  inc_indexmode.
-END.
-
-PROCEDURE setRemoveEmptyDFfile:
-    DEFINE INPUT PARAMETER inc_deldffile AS LOGICAL NO-UNDO.
-    ASSIGN del-df-file = inc_deldffile.
 END.
 
 PROCEDURE setRenameFilename:
@@ -266,15 +255,10 @@ PROCEDURE setDebugMode:
     ASSIGN debug-mode   =  inc_debug.
 END.
 
-PROCEDURE setDumpSection:
-    DEFINE INPUT PARAMETER inc_dump_section AS LOGICAL NO-UNDO.
-    ASSIGN dump-section   =  STRING(inc_dump_section).
-END.
-
 Procedure doDumpIncr:
 
 IF debug-mode GT 0 THEN
-   OUTPUT STREAM err-log TO {&errFileName} APPEND NO-ECHO.
+   OUTPUT STREAM err-log TO VALUE(errFileName) APPEND NO-ECHO.
 
 IF NUM-DBS LT 2 THEN DO:
  IF user-dbtype1 = "PROGRESS" AND user-dbtype2 = "PROGRESS" THEN DO:
@@ -328,15 +312,15 @@ ELSE DO:
 END.  /* code-page EQ "":U */
 
 /* index-mode checking */
-IF index-mode NE ? THEN DO:
-  IF (index-mode LT 0) OR (index-mode GT 2) THEN DO:
+IF index-mode NE "":U THEN DO:
+  IF NOT CAN-DO("active,inactive":U, index-mode) THEN DO:
     IF debug-mode GT 0 THEN
       PUT STREAM err-log UNFORMATTED SUBSTITUTE(new_lang[06], index-mode, "{&DEFAULT_INDEX}":U) SKIP.
-    ASSIGN index-mode = {&DEFAULT_INDEX}.
+    ASSIGN index-mode = "{&DEFAULT_INDEX}":U.
   END.
 END.
 ELSE DO:
-  ASSIGN index-mode = {&DEFAULT_INDEX}.
+  ASSIGN index-mode = "{&DEFAULT_INDEX}":U.
   IF debug-mode GT 0 THEN
     PUT STREAM err-log UNFORMATTED SUBSTITUTE(new_lang[04], index-mode, "index mode":U) SKIP.
 END.  /* index-mode EQ "":U */
@@ -348,7 +332,7 @@ ELSE
   ASSIGN user_env[43] = "No".
 
 /* user_env[19] will be changed BY _dmpincr.p */
-ASSIGN user_env[19] = rename-file + ",":U + STRING(index-mode) + ",":U +
+ASSIGN user_env[19] = rename-file + ",":U + index-mode + ",":U +
                       STRING(debug-mode) + ",":U + STRING(setincrdmpSilent)
        user_env[02] = df-file-name
        user_env[05] = code-page.
@@ -418,14 +402,7 @@ IF debug-mode GT 0 THEN DO:
   OUTPUT STREAM err-log CLOSE.
 END.
 
-RUN pct/v12/_dmpincr124.p.
-IF     del-df-file
-   AND RETURN-VALUE MATCHES "*SEEK=*"
-   AND INT64(REPLACE(RETURN-VALUE,"SEEK=","")) EQ 0
-THEN DO:
-  MESSAGE "No difference found. Deleting " + df-file-name.
-  OS-DELETE VALUE(df-file-name).
-END.
+RUN prodict/dump/_dmpincr.p.
 
 RETURN.
 END. /* end of doDumpIncr */
@@ -438,10 +415,15 @@ IF NOT SESSION:BATCH-MODE THEN DO:
           VIEW-AS ALERT-BOX ERROR BUTTONS OK.
   RETURN.
 END.  /* NOT SESSION:BATCH-MODE */
+/* Check write access */
+FILE-INFO:FILE-NAME = errFileName.
+IF FILE-INFO:FULL-PATHNAME ne ? AND INDEX(FILE-INFO:FILE-TYPE, "W":u) = 0 THEN
+  ASSIGN errFileName = SESSION:TEMP-DIRECTORY + errFileName.
+FILE-INFO:FILE-NAME = ?.
 
 IF this-procedure:persistent THEN DO:
   IF debug-mode GT 0 THEN DO:
-    OUTPUT STREAM err-log TO {&errFileName} APPEND NO-ECHO.
+    OUTPUT STREAM err-log TO VALUE(errFileName) APPEND NO-ECHO.
     PUT STREAM err-log UNFORMATTED SUBSTITUTE(new_lang[23], STRING(NOW)) SKIP(1).
   END.
 END.
@@ -450,7 +432,7 @@ ELSE DO:
          rename-file  = getEnvironment("{&VAR_PREFIX}_RENAMEFILE":U)
          df-file-name = getEnvironment("{&VAR_PREFIX}_DFFILE":U)
          code-page    = getEnvironment("{&VAR_PREFIX}_CODEPAGE":U)
-         index-mode   = getEnvironmentInt("{&VAR_PREFIX}_INDEXMODE":U)
+         index-mode   = getEnvironment("{&VAR_PREFIX}_INDEXMODE":U)
          dump-section = getEnvironment("{&VAR_PREFIX}_DUMPSECTION":U)
          ds_shname1   = getEnvironment("SHDBNAME1":U)
          ds_shname2   = getEnvironment("SHDBNAME2":U)
@@ -461,7 +443,7 @@ ELSE DO:
 
 
 IF debug-mode GT 0 THEN DO:
-    OUTPUT STREAM err-log TO {&errFileName} APPEND NO-ECHO.
+    OUTPUT STREAM err-log TO VALUE(errFileName) APPEND NO-ECHO.
     PUT STREAM err-log UNFORMATTED SUBSTITUTE(new_lang[23], STRING(NOW)) SKIP(1).
   END.
 

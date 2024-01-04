@@ -1,5 +1,5 @@
 /***********************************************************************
-* Copyright (C) 2006-2020 by Progress Software Corporation. All rights *
+* Copyright (C) 2006-2020,2023 by Progress Software Corporation. All rights *
 * reserved.  Prior versions of this work may contain portions          *
 * contributed by participants of Possenet.                             *
 *                                                                      *
@@ -15,8 +15,10 @@
  *                          20050930-006                            *
  * vmaganti     10/12/20    Making native sequence as default one   *
  * tmasood      11/12/20    Include four new sections to            *
- *                          support online schema change feature.   */
-   
+ *                          support online schema change feature.
+ * kberlia      06/06/23    Supporting dump of _field DDM Schema.
+ * tmasood      07/24/23    Support load of DDM Schema              */
+
 /* uservar.i - dictionary user interface variable definitions */
 
 {adecomm/adestds.i}
@@ -56,8 +58,8 @@ DEFINE {1} SHARED VARIABLE hasNativeSeqSupport AS LOGICAL    NO-UNDO.
 
 /* For Online schema support */
 DEFINE {1} SHARED STREAM pre-str.
-DEFINE {1} SHARED STREAM trig-str. 
-DEFINE {1} SHARED STREAM post-str. 
+DEFINE {1} SHARED STREAM trig-str.
+DEFINE {1} SHARED STREAM post-str.
 DEFINE {1} SHARED STREAM offln-str.
 DEFINE {1} SHARED VARIABLE hPreDeployStream  AS HANDLE NO-UNDO.
 DEFINE {1} SHARED VARIABLE hTriggersStream   AS HANDLE NO-UNDO.
@@ -71,7 +73,7 @@ DEFINE {1} SHARED VARIABLE DumpDDM     AS CHARACTER NO-UNDO.
 DEFINE {1} SHARED VARIABLE ddmload        AS CHARACTER NO-UNDO.
 DEFINE {1} SHARED VARIABLE ignoreddmload  AS CHARACTER NO-UNDO.
 
-&IF "{&WINDOW-SYSTEM}" <> "TTY" &THEN 
+&IF "{&WINDOW-SYSTEM}" <> "TTY" &THEN
    DEFINE RECTANGLE rect_Btns {&STDPH_OKBOX}.
    DEFINE BUTTON    btn_Help LABEL "&Help" {&STDPH_OKBTN}.
 
@@ -89,15 +91,15 @@ DEFINE {1} SHARED VARIABLE ignoreddmload  AS CHARACTER NO-UNDO.
 
 &IF "{&WINDOW-SYSTEM}" <> "TTY"
  AND "{&DICTG}" <> "dictg"
- &THEN 
+ &THEN
    /* Help context defines and the name of the help file */
    {prodict/admnhlp.i}
-   &global-define ADM_HELP_FILE "adehelp/admin.hlp"  
+   &global-define ADM_HELP_FILE "adehelp/admin.hlp"
 &ENDIF
 
 /* used to define the display name of the product. It used to be PROGRESS,
 and now we are changigng it to OpenEdge. Creating define so that the next time
 we change it, we don't have to go through changing all necessary source
-files again 
+files again
 */
 &GLOBAL-DEFINE PRO_DISPLAY_NAME OpenEdge
