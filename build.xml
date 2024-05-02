@@ -59,7 +59,7 @@
     <include name="Consultingwerk/**/*.cls" />
     <include name="Consultingwerk/**/*.p" />
   </fileset>
-  
+
   <!-- Different propath depending on version -->
   <path id="pp.v11">
     <pathelement location="${src.progress}" />
@@ -101,7 +101,7 @@
     <pathelement location="lib/objenesis-2.6.jar" />
     <pathelement location="lib/rcode-reader-2.22.1.jar"/>
   </path>
-  
+
   <target name="init" description="Initialize PCT builder" depends="init-properties">
     <tstamp>
       <format property="year" pattern="yyyy" />
@@ -110,6 +110,7 @@
     <mkdir dir="${build-java}" />
     <mkdir dir="${build-test}" />
     <mkdir dir="${build-v11}" />
+    <mkdir dir="${doc}" />
     <mkdir dir="${build-v12}" />
 	<mkdir dir="${build-v13}" />
 	<mkdir dir="${doc}" />
@@ -137,7 +138,7 @@
       <include name="za/co/mip/**/*.java" />
       <classpath refid="pct.compil" />
     </javac>
-      
+
     <copy todir="${build-java}">
       <fileset dir="${src.java}" includes="**/*.properties" />
     </copy>
@@ -223,7 +224,7 @@
       <fileset dir="${src.progress}" includes="**/*" excludes="Consultingwerk/Studio/ClassDocumentation/Templates/resources/**/*" />
     </zip>
   </target>
- 
+
   <target name="classDoc" depends="declare-bootstrap" description="Windows compilation of class documentation">
     <mkdir dir="${build-win-v11}" />
     <bootstrapCompile destdir="${build-win-v11}" md5="true" minSize="false" graphicalMode="false" dlcHome="${DLC11}" cpstream="iso8859-1" debugListing="true" listing="true" relativePaths="true" requireFullNames="true" requireFieldQualifiers="true" if:true="${dlc.v11.present}">

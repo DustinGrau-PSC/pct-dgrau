@@ -1,5 +1,5 @@
 /**
- * Copyright 2005-2023 Riverside Software
+ * Copyright 2005-2024 Riverside Software
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -108,9 +108,7 @@ public abstract class PCT extends Task {
             throw new BuildException("Unable to read DLC version file in '" + dlcHome.toString() + "'");
         }
 
-        if (version.compareTo(new DLCVersion(13, 0, "0")) >= 0)
-            this.pp = new ProgressV13();
-		else if (version.compareTo(new DLCVersion(12, 8, "0")) >= 0)
+        if (version.compareTo(new DLCVersion(12, 8, "0")) >= 0)
             this.pp = new ProgressV128();
         else if (version.compareTo(new DLCVersion(12, 4, "0")) >= 0)
             this.pp = new ProgressV124();
@@ -460,7 +458,7 @@ public abstract class PCT extends Task {
      * @since PCT 0.17
      */
     private boolean extractZip(File dir) throws IOException {
-        //log("Working with PCT source code, either because you asked for it or because the compiled version is missing in JAR file");
+        log("Working with PCT source code, either because you asked for it or because the compiled version is missing in JAR file");
         InputStream is = this.getClass().getResourceAsStream("/pct-src.zip");
         if (is == null)
             return false;

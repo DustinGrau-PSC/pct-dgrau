@@ -1,5 +1,5 @@
 /**
- * Copyright 2005-2023 Riverside Software
+ * Copyright 2005-2024 Riverside Software
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -568,9 +568,8 @@ public abstract class PCTBgRun extends PCT implements IRunAttributes {
     private void createProfilerParamFile(File paramFile) {
         try (BufferedWriter bw = new BufferedWriter(new FileWriter(paramFile))) {
             // Assuming nobody will use file names with double quotes in this case...
-            bw.write("-FILENAME \""
-                    + new File(options.getProfiler().getOutputDir(), "profiler"
-                            + PCT.nextRandomInt() + ".out\""));
+            bw.write("-FILENAME \"" + new File(options.getProfiler().getOutputDir(), "profiler"
+                    + PCT.nextRandomInt() + options.getProfiler().getExtension() + "\""));
             bw.newLine();
             if (options.getProfiler().hasCoverage()) {
                 bw.write("-COVERAGE");
